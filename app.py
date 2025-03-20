@@ -13,12 +13,10 @@ st.set_page_config(
     page_icon="📊"
 )
 
-
 # Cargar CSS personalizado desde archivo
 def load_css(css_file):
     with open(css_file, 'r') as f:
         return f.read()
-
 
 # Crear el archivo CSS si no existe
 if not os.path.exists('style.css'):
@@ -147,10 +145,7 @@ st.markdown(f"<style>{load_css('style.css')}</style>", unsafe_allow_html=True)
 st.markdown("<h1 class='main-title'>📊 Sistema de Evaluación de Convocatorias Empresariales</h1>",
             unsafe_allow_html=True)
 
-# Mostrar imagen o logo si se desea
-# st.image("logo.png", width=150)
-
-# Load criteria definitions
+# Definición de criterios
 criteria = {
     "Origen de la empresa": {
         "description": "La empresa debe tener su domicilio fiscal en cualquier país de América Latina que no sea Brasil.",
@@ -204,7 +199,7 @@ criteria = {
     }
 }
 
-# Sidebar for OpenAI API key
+# Sidebar para la API key y detalle de criterios
 with st.sidebar:
     st.header("Configuración")
     api_key = st.text_input("OpenAI API Key", type="password")
@@ -217,13 +212,13 @@ with st.sidebar:
             st.text(details['rubric'])
             st.markdown(f"**Demostración**: {details['demonstration']}")
 
-# Main content
+# Contenido principal
 tab1, tab2 = st.tabs(["Evaluación", "Resultados"])
 
 with tab1:
     st.subheader("Respuestas del Formulario")
 
-    # Option to upload a text file or paste text
+    # Opción para pegar texto o subir archivo
     input_method = st.radio("Método de entrada", ["Pegar texto", "Subir archivo"])
 
     if input_method == "Pegar texto":
@@ -252,8 +247,7 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
 
-
-# Function to evaluate the application
+# Función para evaluar la postulación
 def evaluate_application(api_key, form_responses):
     if not api_key:
         st.error("Por favor, ingrese una API key válida en la barra lateral")
@@ -305,21 +299,21 @@ def evaluate_application(api_key, form_responses):
         template=prompt_template
     )
 
-    # Initialize LLM and chain
+    # Inicializar LLM y cadena de procesamiento
     llm = ChatOpenAI(openai_api_key=api_key, model_name="gpt-4o", temperature=0.2)
     chain = LLMChain(llm=llm, prompt=prompt)
 
-    # Run the chain
+    # Ejecutar la cadena
     criteria_json = json.dumps(criteria, ensure_ascii=False)
     result = chain.run(form_responses=form_responses, criteria_json=criteria_json)
 
     try:
-        # Extract JSON from the result (in case there's additional text)
+        # Extraer el JSON de la respuesta (en caso de haber texto adicional)
         json_start = result.find('{')
         json_end = result.rfind('}') + 1
         json_str = result[json_start:json_end]
 
-        # Parse JSON response
+        # Parsear la respuesta JSON
         evaluation = json.loads(json_str)
         return evaluation
     except Exception as e:
@@ -328,78 +322,24 @@ def evaluate_application(api_key, form_responses):
         st.write(result)
         return None
 
-
-# Display results in the Results tab
+# Mostrar resultados en la pestaña "Resultados"
 with tab2:
     if 'evaluation_results' not in st.session_state:
         st.session_state.evaluation_results = None
 
     if evaluate_button and form_responses and api_key:
-        # Actualizar estado de procesamiento
-        st.session_state.processing = True
-
-        # Contenedor para la barra de progreso y mensajes
-        progress_container = st.empty()
-
-        with progress_container.container():
-            # Añadir más feedback visual durante la evaluación
-            progress_text = "Evaluando la postulación..."
-            my_bar = st.progress(0)
-
-            # Añadir un spinner personalizado
-            spinner_html = """
-            <div class="spinner-container">
-                <div class="spinner"></div>
-                <div class="spinner-text">Procesando evaluación...</div>
-            </div>
-            """
-            st.markdown(spinner_html, unsafe_allow_html=True)
-
-            # Simulación de progreso con mensajes
-            import time
-
-            messages = [
-                "Analizando información básica de la empresa...",
-                "Evaluando el sector y la tecnología...",
-                "Analizando la propuesta de valor para Brasil...",
-                "Comprobando el grado de innovación...",
-                "Evaluando viabilidad técnica y de mercado...",
-                "Calculando puntajes y generando recomendaciones..."
-            ]
-
-            # Mostrar mensajes de progreso secuenciales
-            for i, msg in enumerate(messages):
-                # Actualizar barra y mensaje
-                progress_percent = (i + 1) / len(messages)
-                my_bar.progress(progress_percent)
-                st.markdown(
-                    f"<div style='margin: 5px 0; padding: 5px; border-left: 3px solid #1E88E5;'><i class='fas fa-sync fa-spin'></i> {msg}</div>",
-                    unsafe_allow_html=True)
-                time.sleep(0.7)  # Pausa para visualizar el progreso
-
-            # Llamar a la función de evaluación
+        with st.spinner("Procesando evaluación, por favor espere..."):
             evaluation = evaluate_application(api_key, form_responses)
 
-            if evaluation:
-                # Mostrar finalización
-                my_bar.progress(1.0)
-                st.success("✅ ¡Evaluación completada con éxito!")
-                time.sleep(1.5)  # Pausa antes de mostrar resultados
-                st.session_state.evaluation_results = evaluation
-
-            # Limpiar el contenedor de progreso cuando termine
-            progress_container.empty()
-
-        # Restaurar estado de procesamiento
-        st.session_state.processing = False
+        if evaluation:
+            st.success("✅ ¡Evaluación completada con éxito!")
+            st.session_state.evaluation_results = evaluation
 
     if st.session_state.evaluation_results:
         evaluation = st.session_state.evaluation_results
 
-        # Company summary card con diseño mejorado
+        # Tarjeta resumen de la empresa
         st.header("Resumen de la Empresa")
-
-        # Marco con estilo para el resumen
         st.markdown("""
         <div class="info-card">
             <h3 style="margin-top:0;">Datos Generales</h3>
@@ -420,18 +360,13 @@ with tab2:
                 <p style="font-style:italic;">{evaluation['resumen']['propuesta_valor']}</p>
             </div>
             """, unsafe_allow_html=True)
-
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.divider()
 
-        # Evaluations display
+        # Evaluación por criterios
         st.header("Evaluación por Criterios")
-
-        # Score summary con diseño mejorado
         score_cols = st.columns(3)
-
-        # Determinar la clase CSS basada en el porcentaje
         percentage = evaluation['porcentaje']
         if percentage >= 75:
             score_class = "success"
@@ -463,7 +398,6 @@ with tab2:
             status = "SELECCIONADA" if evaluation["seleccionada"] else "NO SELECCIONADA"
             status_icon = "✅" if evaluation["seleccionada"] else "❌"
             status_class = "success" if evaluation["seleccionada"] else "danger"
-
             st.markdown(f"""
             <div class="metric-box {status_class}">
                 <h4>Decisión Final</h4>
@@ -473,12 +407,10 @@ with tab2:
 
         st.divider()
 
-        # Individual criteria evaluations con diseño mejorado
+        # Evaluación individual de cada criterio
         for eval_item in evaluation["evaluaciones"]:
             criterion_name = eval_item['criterio']
             score = eval_item['puntaje']
-
-            # Clase CSS basada en la puntuación
             if score >= 4:
                 score_class = "score-high"
                 emoji = "🔥"
@@ -489,7 +421,6 @@ with tab2:
                 score_class = "score-low"
                 emoji = "⚠️"
 
-            # Título del expander con badge de puntuación estilizado
             expander_title = f"""
             <div class="criterion-header">
                 <span>{criterion_name}</span>
@@ -498,31 +429,18 @@ with tab2:
             """
 
             with st.expander(criterion_name):
-                # Primero mostramos la puntuación de manera destacada
-                st.markdown(f"""
-                <div style="text-align: right;">
-                    <span class="score-badge {score_class}" style="font-size: 1.2rem; padding: 5px 15px;">
-                        {emoji} Puntuación: {score}/5
-                    </span>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # Mostramos la descripción del criterio
+                st.markdown(expander_title, unsafe_allow_html=True)
                 st.markdown(f"""
                 <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
                     <strong>Descripción del criterio:</strong> {criteria[criterion_name]['description']}
                 </div>
                 """, unsafe_allow_html=True)
-
-                # Mostramos la justificación
                 st.markdown(f"""
                 <div style="margin: 15px 0;">
                     <h4>Justificación</h4>
                     <p>{eval_item['justificacion']}</p>
                 </div>
                 """, unsafe_allow_html=True)
-
-                # Mostramos las recomendaciones
                 st.markdown(f"""
                 <div style="background-color: #fff8e1; padding: 15px; border-radius: 5px; border-left: 4px solid #FFC107; margin: 15px 0;">
                     <h4>💡 Recomendaciones para mejorar</h4>
@@ -530,14 +448,10 @@ with tab2:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # Option to download results
+        # Opción para descargar los resultados
         st.divider()
         st.subheader("Exportar Resultados")
-
-        # Convert evaluation to pretty JSON for download
         json_str = json.dumps(evaluation, indent=2, ensure_ascii=False)
-
-        # Download button
         st.download_button(
             label="Descargar Evaluación (JSON)",
             data=json_str,
@@ -545,8 +459,7 @@ with tab2:
             mime="application/json"
         )
     else:
-        st.info(
-            "Aún no hay resultados de evaluación. Por favor, complete el formulario en la pestaña 'Evaluación' y haga clic en 'Evaluar Postulación'.")
+        st.info("Aún no hay resultados de evaluación. Por favor, complete el formulario en la pestaña 'Evaluación' y haga clic en 'Evaluar Postulación'.")
 
 # Footer
 st.markdown("---")
@@ -559,3 +472,4 @@ st.markdown("""
 
 La aplicación evalúa 10 criterios en una escala de 1 a 5. Para ser seleccionada, la empresa debe obtener al menos el 75% del puntaje máximo posible (38 de 50 puntos).
 """)
+st.markdown("<p style='text-align: center; font-style: italic;'>Hecho con <3 para los mentores de Softlanding Power by Xpertia</p>", unsafe_allow_html=True)
