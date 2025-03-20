@@ -1,7 +1,6 @@
 import streamlit as st
 import json
 import os
-import time
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain.chains import LLMChain
@@ -212,42 +211,7 @@ with st.sidebar:
             st.text(details['rubric'])
             st.markdown(f"**Demostración**: {details['demonstration']}")
 
-# Contenido principal
-tab1, tab2 = st.tabs(["Evaluación", "Resultados"])
-
-with tab1:
-    st.subheader("Respuestas del Formulario")
-
-    # Opción para pegar texto o subir archivo
-    input_method = st.radio("Método de entrada", ["Pegar texto", "Subir archivo"])
-
-    if input_method == "Pegar texto":
-        form_responses = st.text_area("Pegue las respuestas del formulario aquí", height=400)
-    else:
-        uploaded_file = st.file_uploader("Suba un archivo con las respuestas", type=["txt"])
-        if uploaded_file is not None:
-            form_responses = uploaded_file.getvalue().decode("utf-8")
-            st.text_area("Contenido del archivo", form_responses, height=400)
-        else:
-            form_responses = ""
-
-    # Inicializar estado de procesamiento si no existe
-    if 'processing' not in st.session_state:
-        st.session_state.processing = False
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        evaluate_button = st.button("Evaluar Postulación", use_container_width=True)
-    with col2:
-        if st.session_state.processing:
-            st.markdown("""
-            <div class='processing-indicator'>
-                <div class="spinner" style="width: 20px; height: 20px; border-width: 3px; margin-right: 10px;"></div>
-                EVALUANDO...
-            </div>
-            """, unsafe_allow_html=True)
-
-# Función para evaluar la postulación
+# Definir la función para evaluar la postulación (definición movida antes de su uso)
 def evaluate_application(api_key, form_responses):
     if not api_key:
         st.error("Por favor, ingrese una API key válida en la barra lateral")
@@ -300,7 +264,7 @@ def evaluate_application(api_key, form_responses):
     )
 
     # Inicializar LLM y cadena de procesamiento
-    llm = ChatOpenAI(openai_api_key=api_key, model_name="gpt-4o", temperature=0.2)
+    llm = ChatOpenAI(openai_api_key=api_key, model="gpt-4o", temperature=0.2)
     chain = LLMChain(llm=llm, prompt=prompt)
 
     # Ejecutar la cadena
@@ -322,18 +286,37 @@ def evaluate_application(api_key, form_responses):
         st.write(result)
         return None
 
-# Mostrar resultados en la pestaña "Resultados"
+# Contenido principal con dos pestañas: Evaluación y Resultados
+tab1, tab2 = st.tabs(["Evaluación", "Resultados"])
+
+with tab1:
+    st.subheader("Respuestas del Formulario")
+
+
+    input_method = st.radio("Método de entrada", ["Pegar texto", "Subir archivo"])
+
+    if input_method == "Pegar texto":
+        form_responses = st.text_area("Pegue las respuestas del formulario aquí", height=400)
+    else:
+        uploaded_file = st.file_uploader("Suba un archivo con las respuestas", type=["txt"])
+        if uploaded_file is not None:
+            form_responses = uploaded_file.getvalue().decode("utf-8")
+            st.text_area("Contenido del archivo", form_responses, height=400)
+        else:
+            form_responses = ""
+
+    # Se usa un placeholder para el botón que se reemplazará por el spinner al hacer clic
+    button_placeholder = st.empty()
+    if button_placeholder.button("Evaluar Postulación", use_container_width=True):
+        # Se elimina el botón y se muestra el spinner
+        button_placeholder.empty()
+        with st.spinner("Procesando tu postulación..."):
+            evaluation = evaluate_application(api_key, form_responses)
+            st.session_state.evaluation_results = evaluation
+
 with tab2:
     if 'evaluation_results' not in st.session_state:
         st.session_state.evaluation_results = None
-
-    if evaluate_button and form_responses and api_key:
-        with st.spinner("Procesando evaluación, por favor espere..."):
-            evaluation = evaluate_application(api_key, form_responses)
-
-        if evaluation:
-            st.success("✅ ¡Evaluación completada con éxito!")
-            st.session_state.evaluation_results = evaluation
 
     if st.session_state.evaluation_results:
         evaluation = st.session_state.evaluation_results
