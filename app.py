@@ -236,17 +236,21 @@ with tab1:
         else:
             form_responses = ""
 
+    # Inicializar estado de procesamiento si no existe
+    if 'processing' not in st.session_state:
+        st.session_state.processing = False
+
     col1, col2 = st.columns([3, 1])
     with col1:
         evaluate_button = st.button("Evaluar Postulación", use_container_width=True)
     with col2:
-        if 'processing' not in st.session_state:
-            st.session_state.processing = False
-
         if st.session_state.processing:
-            st.markdown(
-                "<div class='processing-indicator'><span class='spin-icon'>⚙️</span> EVALUANDO POSTULACIÓN...</div>",
-                unsafe_allow_html=True)
+            st.markdown("""
+            <div class='processing-indicator'>
+                <div class="spinner" style="width: 20px; height: 20px; border-width: 3px; margin-right: 10px;"></div>
+                EVALUANDO...
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # Function to evaluate the application
@@ -342,6 +346,15 @@ with tab2:
             progress_text = "Evaluando la postulación..."
             my_bar = st.progress(0)
 
+            # Añadir un spinner personalizado
+            spinner_html = """
+            <div class="spinner-container">
+                <div class="spinner"></div>
+                <div class="spinner-text">Procesando evaluación...</div>
+            </div>
+            """
+            st.markdown(spinner_html, unsafe_allow_html=True)
+
             # Simulación de progreso con mensajes
             import time
 
@@ -359,8 +372,9 @@ with tab2:
                 # Actualizar barra y mensaje
                 progress_percent = (i + 1) / len(messages)
                 my_bar.progress(progress_percent)
-                st.markdown(f"<div style='margin: 5px 0; padding: 5px; border-left: 3px solid #1E88E5;'>⏳ {msg}</div>",
-                            unsafe_allow_html=True)
+                st.markdown(
+                    f"<div style='margin: 5px 0; padding: 5px; border-left: 3px solid #1E88E5;'><i class='fas fa-sync fa-spin'></i> {msg}</div>",
+                    unsafe_allow_html=True)
                 time.sleep(0.7)  # Pausa para visualizar el progreso
 
             # Llamar a la función de evaluación
@@ -370,7 +384,6 @@ with tab2:
                 # Mostrar finalización
                 my_bar.progress(1.0)
                 st.success("✅ ¡Evaluación completada con éxito!")
-                st.balloons()  # Efecto visual de finalización
                 time.sleep(1.5)  # Pausa antes de mostrar resultados
                 st.session_state.evaluation_results = evaluation
 
